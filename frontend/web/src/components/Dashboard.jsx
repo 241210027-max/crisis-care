@@ -10,7 +10,172 @@ import {
   RefreshCw,
 } from 'lucide-react';
 
+import {
+  MapContainer,
+  TileLayer,
+  CircleMarker,
+  Popup,
+  useMap,
+} from 'react-leaflet';
+import 'leaflet/dist/leaflet.css';
+
 const API_BASE_URL = '';
+
+const DEFAULT_CENTER = [22.5, 79.0];
+
+const getSeverityLabel = (severity) => {
+  const level = Number(severity);
+
+  if (level >= 8) return 'High';
+  if (level >= 5) return 'Medium';
+  return 'Low';
+};
+
+const severityColors = {
+  High: {
+    background: '#ef4444',
+    border: '#fca5a5',
+  },
+  Medium: {
+    background: '#eab308',
+    border: '#fde047',
+  },
+  Low: {
+    background: '#22c55e',
+    border: '#86efac',
+  },
+};
+
+const MapViewUpdater = ({ disasters }) => {
+  const map = useMap();
+
+  useEffect(() => {
+    const validLocations = disasters
+      .map((disaster) => [
+        Number(disaster.latitude),
+        Number(disaster.longitude),
+      ])
+      .filter(
+        ([latitude, longitude]) =>
+          Number.isFinite(latitude) &&
+          Number.isFinite(longitude) &&
+          latitude >= -90 &&
+          latitude <= 90 &&
+          longitude >= -180 &&
+          longitude <= 180
+      );
+
+    if (validLocations.length === 1) {
+      map.setView(validLocations[0], 5);
+    } else if (validLocations.length > 1) {
+      const bounds = validLocations;
+      map.fitBounds(bounds, { padding: [30, 30] });
+    }
+  }, [disasters, map]);
+
+  return null;
+};
+
+const DisasterMap = ({ disasters, loading }) => {
+  const validDisasters = disasters.filter((disaster) => {
+    const latitude = Number(disaster.latitude);
+    const longitude = Number(disaster.longitude);
+
+    return (
+      Number.isFinite(latitude) &&
+      Number.isFinite(longitude) &&
+      latitude >= -90 &&
+      latitude <= 90 &&
+      longitude >= -180 &&
+      longitude <= 180
+    );
+  });
+
+  return (
+    <div className="bg-[#0F172A] h-80 rounded-lg overflow-hidden">
+      {loading ? (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <RefreshCw className="w-8 h-8 mx-auto mb-3 text-blue-400 animate-spin" />
+            <p className="text-gray-400">Loading disaster locations...</p>
+          </div>
+        </div>
+      ) : validDisasters.length === 0 ? (
+        <div className="h-full flex items-center justify-center">
+          <div className="text-center">
+            <MapPin className="w-10 h-10 mx-auto mb-3 text-gray-600" />
+            <p className="text-gray-400">
+              No valid disaster coordinates available
+            </p>
+          </div>
+        </div>
+      ) : (
+        <MapContainer
+          center={DEFAULT_CENTER}
+          zoom={4}
+          scrollWheelZoom={true}
+          className="h-full w-full"
+        >
+          <TileLayer
+  attribution='&copy; Esri &mdash; Source: Esri, DeLorme, NAVTEQ'
+  url="https://server.arcgisonline.com/ArcGIS/rest/services/World_Street_Map/MapServer/tile/{z}/{y}/{x}"
+/>
+
+          <MapViewUpdater disasters={validDisasters} />
+
+          {validDisasters.map((disaster) => {
+            const latitude = Number(disaster.latitude);
+            const longitude = Number(disaster.longitude);
+            const severity = getSeverityLabel(disaster.severity_level);
+            const severityStyle = severityColors[severity];
+
+            return (
+              <CircleMarker
+                key={disaster.disaster_id}
+                center={[latitude, longitude]}
+                radius={10}
+                pathOptions={{
+                  color: severityStyle.border,
+                  fillColor: severityStyle.background,
+                  fillOpacity: 0.85,
+                  weight: 2,
+                }}
+              >
+                <Popup>
+                  <div className="text-gray-900 min-w-[180px]">
+                    <h3 className="font-bold text-base mb-2">
+                      {disaster.disaster_name}
+                    </h3>
+
+                    <p className="text-sm">
+                      <strong>Type:</strong>{' '}
+                      {disaster.disaster_type || 'Not specified'}
+                    </p>
+
+                    <p className="text-sm">
+                      <strong>Severity:</strong> {severity}
+                    </p>
+
+                    <p className="text-sm">
+                      <strong>Started:</strong>{' '}
+                      {disaster.start_date || 'Not specified'}
+                    </p>
+
+                    <p className="text-sm mt-1">
+                      <strong>Coordinates:</strong>
+                      <br />
+                      {latitude.toFixed(4)}, {longitude.toFixed(4)}
+                    </p>
+                  </div>
+                </Popup>
+              </CircleMarker>
+            );
+          })}
+        </MapContainer>
+      )}
+    </div>
+  );
+};
 
 const Dashboard = () => {
   const [disasters, setDisasters] = useState([]);
@@ -102,20 +267,6 @@ const Dashboard = () => {
     },
   ];
 
-  const getSeverityLabel = (severity) => {
-    const level = Number(severity);
-
-    if (level >= 8) return 'High';
-    if (level >= 5) return 'Medium';
-    return 'Low';
-  };
-
-  const severityColors = {
-    High: 'bg-red-500/20 border-red-500',
-    Medium: 'bg-yellow-500/20 border-yellow-500',
-    Low: 'bg-green-500/20 border-green-500',
-  };
-
   const activeAlerts = disasters
     .slice()
     .sort(
@@ -133,7 +284,6 @@ const Dashboard = () => {
       <Sidebar />
 
       <div className="flex-1 p-8">
-        {/* Header */}
         <div className="flex justify-between items-center mb-6">
           <div>
             <h1 className="text-3xl font-bold">Dashboard</h1>
@@ -157,7 +307,6 @@ const Dashboard = () => {
           </div>
         )}
 
-        {/* Overview Cards */}
         <div className="grid grid-cols-4 gap-4 mb-6">
           {overviewCards.map((card, index) => (
             <div
@@ -187,9 +336,7 @@ const Dashboard = () => {
           ))}
         </div>
 
-        {/* Disaster Map & Alerts */}
         <div className="grid grid-cols-3 gap-6 mb-6">
-          {/* Disaster Map */}
           <div className="col-span-2 bg-[#1E293B] rounded-xl p-6 border border-gray-700">
             <div className="flex justify-between items-center mb-4">
               <h2 className="text-xl font-semibold flex items-center">
@@ -202,24 +349,9 @@ const Dashboard = () => {
               </div>
             </div>
 
-            <div className="bg-[#0F172A] h-80 rounded-lg flex items-center justify-center">
-              <div className="text-center">
-                <MapPin className="w-10 h-10 mx-auto mb-3 text-gray-600" />
-
-                <p className="text-gray-400">
-                  Interactive map coming soon
-                </p>
-
-                <p className="text-gray-600 text-sm mt-1">
-                  {loading
-                    ? 'Loading disaster locations...'
-                    : `${disasters.length} disaster locations available`}
-                </p>
-              </div>
-            </div>
+            <DisasterMap disasters={disasters} loading={loading} />
           </div>
 
-          {/* Active Alerts */}
           <div className="bg-[#1E293B] rounded-xl p-6 border border-gray-700">
             <h2 className="text-xl font-semibold mb-4 flex items-center">
               <AlertTriangle className="w-5 h-5 mr-2 text-red-400" />
@@ -236,7 +368,11 @@ const Dashboard = () => {
                   <div
                     key={index}
                     className={`p-4 rounded-lg border ${
-                      severityColors[alert.severity]
+                      alert.severity === 'High'
+                        ? 'bg-red-500/20 border-red-500'
+                        : alert.severity === 'Medium'
+                          ? 'bg-yellow-500/20 border-yellow-500'
+                          : 'bg-green-500/20 border-green-500'
                     } hover:bg-opacity-30 transition-all`}
                   >
                     <div className="flex justify-between items-center">
@@ -269,7 +405,6 @@ const Dashboard = () => {
           </div>
         </div>
 
-        {/* Resource Status */}
         <div className="bg-[#1E293B] rounded-xl p-6 border border-gray-700">
           <h2 className="text-xl font-semibold mb-6 flex items-center">
             <BarChart2 className="w-5 h-5 mr-2 text-green-400" />
