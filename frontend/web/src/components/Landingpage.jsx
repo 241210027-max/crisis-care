@@ -133,15 +133,6 @@ export default function LandingPage() {
           <a href="#how-it-works" className="hover:text-blue-400 transition-colors hover:scale-105 transform duration-200">
             How It Works
           </a>
-          <a 
-            href="https://github.com/ArshTiwari2004/Sahyog" 
-            target="_blank" 
-            rel="noopener noreferrer" 
-            className="flex items-center space-x-2 bg-gray-800 hover:bg-gray-700 text-white px-4 py-2 rounded-lg transition-all"
-          >
-            <Github className="h-4 w-4" />
-            <span>GitHub</span>
-          </a>
         </div>
         <a 
           href="/dashboard" 
